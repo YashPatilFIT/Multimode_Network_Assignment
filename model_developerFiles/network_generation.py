@@ -8,6 +8,7 @@ Created on Thu Oct 24 03:30:01 2019
 
 import random
 import math
+import numpy as np
 
 class Settings:
     def __init__(self, number_of_tasks, number_of_techs, 
@@ -79,15 +80,46 @@ class Scenario:
                 return task
             
     def create_network(self):
-        for task in self.task_list[:-1]:
-            successor_options = [activity.task_index for activity in self.task_list[task.task_index+1:]]
-            successors_to_be_picked = random.randint(1,len(successor_options))
-            task.successor_list = random.sample(successor_options, k = successors_to_be_picked)
-
-        for task in self.task_list:
-            for successor_index in task.successor_list:
-                if task.task_index not in self.get_task_by_index(successor_index).predecessor_list:
-                    self.get_task_by_index(successor_index).predecessor_list.append(task.task_index)
+        A = np.zeros((self.settings.number_of_tasks-2,self.settings.number_of_tasks-2))
+        
+        for i in range(self.settings.number_of_tasks-3):
+            for j in range(i+1,self.settings.number_of_tasks-2):
+                A[i,j] = random.randint(0,1)
+        
+        for i in range(self.settings.number_of_tasks-3):
+            dsum = sum(A[i,:])
+            if dsum == 0:
+                dsum = 1
+            for j in range(i+1,self.settings.number_of_tasks-2):
+                A[i,j] = A[i,j]/dsum
+        Adj = A        
+        S = A
+        for rep in range(self.settings.number_of_tasks):
+            S = S.dot(A)
+            for i in range(self.settings.number_of_tasks-3):
+                for j in range(i+1,self.settings.number_of_tasks-2):
+                    if(A[i,j]>0 and S[i,j]>0):
+                        Adj[i,j] = 0
+                        
+        final_adjacency = np.zeros((self.settings.number_of_tasks,self.settings.number_of_tasks))
+        final_adjacency[1:self.settings.number_of_tasks-1,1:self.settings.number_of_tasks-1] = Adj
+        for i in range(self.settings.number_of_tasks-2):
+            if sum(Adj[i,:]) == 0:
+                final_adjacency[i+1,self.settings.number_of_tasks-1] = 1
+            if sum(Adj[:,i]) == 0:
+                final_adjacency[0,i+1] = 1
+                
+        for i in range(self.settings.number_of_tasks):
+            for j in range(self.settings.number_of_tasks):
+                if final_adjacency[i,j] > 0:
+                    final_adjacency[i,j] = 1
+                
+        for i in range(self.settings.number_of_tasks-1):
+            for j in range(i+1,self.settings.number_of_tasks):
+                if (final_adjacency[i,j] == 1):
+                    self.get_task_by_index(i).successor_list.append(j)
+                    self.get_task_by_index(j).predecessor_list.append(i)
+        
                     
     def set_milestones(self):
         task = self.task_list[0]
@@ -111,7 +143,10 @@ class Scenario:
         self.set_milestones()
                 
    
+settings = Settings(50,8,2,100)
 
+scenario = Scenario(settings)
+scenario.populate_scenario()
 
 
 
